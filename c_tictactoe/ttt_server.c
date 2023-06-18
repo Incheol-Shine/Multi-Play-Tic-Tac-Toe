@@ -13,7 +13,7 @@
 #include <signal.h>
 
 #define BUFFSIZE 3
-#define PORT 12347
+#define PORT 12346
 
 typedef struct s_data
 {
@@ -100,7 +100,8 @@ void	*ThreadMain(void *arg)
 		{
 			printf("X : %d\n", a);
 			a = read(clnt_sock1, msg, sizeof(msg));
-			printf("read %s\n", msg);
+			if (strcmp(msg, "end") == 0)
+				break;
 			if(a < 1)
 				break;
 			write(clnt_sock2, msg, sizeof(msg));
@@ -110,7 +111,8 @@ void	*ThreadMain(void *arg)
 		{
 			printf("O : %d\n", b);
 			b = read(clnt_sock2, msg, sizeof(msg));
-			printf("read %s\n", msg);
+			if (strcmp(msg, "end") == 0)
+				break;
 			if(b < 1)
 				break;
 			write(clnt_sock1, msg, sizeof(msg));
@@ -126,5 +128,9 @@ void	*ThreadMain(void *arg)
 
 //void send_finish_msg(int fd1, int fd2)
 //{
-	
+//	char *msg;
+
+//	strcpy(msg, "end");
+//	write(fd1, msg, strlen(msg)+1);
+//	write(fd2, msg, strlen(msg)+1);
 //}

@@ -1,9 +1,7 @@
 
 from threading import Thread, Lock
-from time import sleep
 import tkinter as tk
 from tkinter import font
-from itertools import cycle
 import socket
 from typing import NamedTuple
 
@@ -17,7 +15,7 @@ class Move(NamedTuple):
 	label: str = ""
 
 HOST = '127.0.0.1'
-PORT = 12347
+PORT = 12346
 BOARD_SIZE = 3
 DEFAULT_PLAYERS = (
 	Player(label="X", color="blue"),
@@ -34,16 +32,11 @@ class	ThreadMatchMake(Thread):
 	
 	def run(self):
 		self.clnt_socket.recv(3).decode()
-		print("yeah recv perfactly")
 		self.main_frame.change_frame()
 		while (self.thread_running):
-			print("thread recv...")
-			coord = self.clnt_socket.recv(3).decode()
-			print(f"coord : {coord}")
+			coord = self.clnt_socket.recv(3).decode()				
 			row, col = map(int, (coord.split()))
-			print(f"{row}")
 			self.main_frame.frames[2].play(row=row, col=col)
-			print(f"recv row:{row}, col:{col}!")
 
 	def stop(self):
 		self.thread_running = False
@@ -67,22 +60,21 @@ class	SocketHandler():
 		self.frame = main_frame
 		self.frame.change_frame()
 		print(self.my_symbol)
-		self.recv_coord()
+		self.recv_msg()
 
 	def get_my_symbol(self):
 		return self.my_symbol
 
-	def recv_coord(self):
-		self.recv_thread = ThreadMatchMake(self.clnt_socket, self.frame)
+	def recv_msg(self):
+		self.recv_thread = ThreadMatchMake(self.clnt_socket, self.frame, daemon=True)
 		self.recv_thread.start()
 	
-	def send_coord(self, row, col):
-		coord = f"{row} {col}"
-		data = coord.encode('utf-8')
+	def send_msg(self, msg):
+		data = msg.encode('utf-8')
 		self.clnt_socket.send(data)
-		print(f"{sh.get_my_symbol()}'s turn! send msg!")
 	
 	def close_socket(self):
+		self.send_msg("end\0")
 		self.recv_thread.stop()
 		self.clnt_socket.close()
 
@@ -92,9 +84,10 @@ class	GamePlay():
 
 class TicTacToeGame:
 	def __init__(self, players=DEFAULT_PLAYERS, board_size=BOARD_SIZE):
-		self._players = cycle(players)
+		self._players = players
 		self.board_size = board_size
-		self.current_player = next(self._players)
+		self._player_idx = 0
+		self.current_player = self._players[self._player_idx]
 		self.winner_combo = []
 		self._current_moves = []
 		self._has_winner = False
@@ -120,7 +113,9 @@ class TicTacToeGame:
 
 	def toggle_player(self):
 		"""Return a toggled player."""
-		self.current_player = next(self._players)
+		print(f"toggle {self.current_player} to another")
+		self._player_idx = (self._player_idx + 1) % 2
+		self.current_player = self._players[self._player_idx]
 
 	def is_valid_move(self, move):
 		"""Return True if move is valid, and False otherwise."""
@@ -161,11 +156,10 @@ class TicTacToeGame:
 				row_content[col] = Move(row, col)
 		self._has_winner = False
 		self.winner_combo = []
+		self._player_idx = 0
+		self.current_player = self._players[self._player_idx]
 	
 	def is_my_turn(self):
-		print("my_turn?")
-		print(f"current : {self.current_player.label}, my_symbol:{sh.get_my_symbol()}")
-		print(self.current_player.label in sh.get_my_symbol())
 		return (self.current_player.label in sh.get_my_symbol())
 
 
@@ -282,9 +276,11 @@ class	Frame2(tk.Frame):
 
 	def play(self, event=None, row=None, col=None):
 		"""Handle a player's move."""
+		print(f"current player : {self._game.current_player.label}")
 		if (row == None):
 			if not(self._game.is_my_turn()):
 				return
+			print("my turn!")
 			clicked_btn = event.widget
 		else:
 			clicked_btn = self._convert_cells[(row, col)]
@@ -294,23 +290,27 @@ class	Frame2(tk.Frame):
 		move = Move(row, col, self._game.current_player.label)
 		if self._game.is_valid_move(move):
 			if (self._game.is_my_turn()):
-				sh.send_coord(row, col)
+				sh.send_msg(f"{row} {col}")
 			self._update_button(clicked_btn)
 			self._game.process_move(move)
 			if self._game.is_tied():
 				self.update_display(msg="Tied game!", color="red")
-				self.popUpRetry()
+				self.end_game()
 			elif self._game.has_winner():
 				self._highlight_cells()
 				msg = f'Player "{self._game.current_player.label}" won!'
 				color = self._game.current_player.color
 				self.update_display(msg, color)
-				self.popUpRetry()
+				self.end_game()
 			else:
 				self._game.toggle_player()
 				msg = f"{self._game.current_player.label}'s turn"
 				self.update_display(msg)
 		lock.release()
+
+	def end_game(self):
+		self.popUpRetry()
+		sh.close_socket()
 
 	def _update_button(self, clicked_btn):
 		clicked_btn.config(text=self._game.current_player.label)
@@ -328,7 +328,6 @@ class	Frame2(tk.Frame):
 	def reset_board(self):
 		"""Reset the game's board to play again."""
 		self._game.reset_game()
-		sh.close_socket()
 		for button in self._cells.keys():
 			button.config(highlightbackground="lightblue")
 			button.config(text="")
