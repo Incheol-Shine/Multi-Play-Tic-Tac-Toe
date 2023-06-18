@@ -1,31 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <arpa/inet.h>
-#include <sys/wait.h>
 #include <pthread.h>
-#include <signal.h>
 
 #define BUFFSIZE 3
-#define PORT 12346
+#define PORT 12345
+#define PLAYER_X_ID "X"
+#define PLAYER_O_ID "O"
 
 typedef struct s_data
 {
 	int	fd1, fd2;
 }	t_data;
 
-typedef struct s_coord
-{
-	int	x, y;
-}	t_coord;
-
-void	*ThreadMain(void *arg);
+void	*thread_main(void *arg);
 
 int	main(void)
 {
@@ -38,43 +29,59 @@ int	main(void)
 	t_data				*data;
 
 	serv_sock = socket(PF_INET,SOCK_STREAM,0);
+	if (serv_sock == -1)
+	{
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(PORT);
 
 	if (bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
-		printf("bind error\n");
+	{
+		perror("bind");
+		exit(EXIT_FAILURE);
+	}
 
 	if (listen(serv_sock, 5) == -1)
-		printf("listen error");
+	{
+		perror("listen");
+		exit(EXIT_FAILURE);
+	}
 
 	while (1)
 	{
-		char	*ID1 = "X";
-		char	*ID2 = "O";
-
-		printf("1\n");
 		clnt_addr_size1=sizeof(clnt_addr1);
 		clnt_sock1 = accept(serv_sock, (struct sockaddr *)&clnt_addr1, &clnt_addr_size1);
-		write(clnt_sock1, ID1, strlen(ID1)+1);
+		if (clnt_sock1 == -1)
+		{
+			perror("accept");
+			exit(EXIT_FAILURE);
+		}
+		write(clnt_sock1, PLAYER_X_ID, strlen(PLAYER_X_ID)+1);
 		
-		printf("2\n");
 		clnt_addr_size2=sizeof(clnt_addr2);
 		clnt_sock2 = accept(serv_sock, (struct sockaddr *)&clnt_addr2, &clnt_addr_size2);
-		write(clnt_sock2, ID2, strlen(ID2)+1);
+		if (clnt_sock2 == -1)
+		{
+			perror("accept");
+			exit(EXIT_FAILURE);
+		}
+		write(clnt_sock2, PLAYER_O_ID, strlen(PLAYER_O_ID)+1);
 
-		printf("3\n");
 		data = (t_data *)malloc(sizeof(t_data));
 		data->fd1 = clnt_sock1;
 		data->fd2 = clnt_sock2;
 
-		pthread_create(&t_thread, NULL, ThreadMain, (void *)data);
-		printf("4\n");
+		pthread_create(&t_thread, NULL, thread_main, (void *)data);
 	}
+	close(serv_sock);
 	return 0;
 }
 
-void	*ThreadMain(void *arg)
+void	*thread_main(void *arg)
 {
 	t_data	*data;
 	int		clnt_sock1, clnt_sock2;
@@ -82,55 +89,40 @@ void	*ThreadMain(void *arg)
 
 	pthread_detach(pthread_self());
 
-	//printf("Thread Main!!!\n");
 	data = (t_data*)arg;
 	clnt_sock1 = data->fd1;
 	clnt_sock2 = data->fd2;
 	
-	strcpy(msg, "ma");
+	strcpy(msg, "AA");
 	write(clnt_sock1, msg, sizeof(msg));
 	write(clnt_sock2, msg, sizeof(msg));
+	
 	int	i = 1;
-	int a = 0;
-	int b = 0;
+	int len_x = 0;
+	int len_o = 0;
 	while (1)
 	{
-		printf("thread inside! %d\n", i);
 		if (i%2)
 		{
-			printf("X : %d\n", a);
-			a = read(clnt_sock1, msg, sizeof(msg));
+			len_x = read(clnt_sock1, msg, sizeof(msg));
 			if (strcmp(msg, "end") == 0)
 				break;
-			if(a < 1)
+			if(len_x < 1)
 				break;
 			write(clnt_sock2, msg, sizeof(msg));
-			printf("send to O\n");
 		}
 		else
 		{
-			printf("O : %d\n", b);
-			b = read(clnt_sock2, msg, sizeof(msg));
+			len_o = read(clnt_sock2, msg, sizeof(msg));
 			if (strcmp(msg, "end") == 0)
 				break;
-			if(b < 1)
+			if(len_o < 1)
 				break;
 			write(clnt_sock1, msg, sizeof(msg));
-			printf("send to X\n");
 		}
 		i++;
 	}
 	free(data);
 	printf("game over\n");
-	//send_finish_msg(clnt_sock1, clnt_sock2);
 	return	NULL;
 }
-
-//void send_finish_msg(int fd1, int fd2)
-//{
-//	char *msg;
-
-//	strcpy(msg, "end");
-//	write(fd1, msg, strlen(msg)+1);
-//	write(fd2, msg, strlen(msg)+1);
-//}
