@@ -1,2 +1,2 @@
-# SocketProgramming
-Tic Tac Toe game for socket programming practice
+# Multi Play Tic-Tac-Toe
+Tic Tac Toe game for socket programming, multi threading, OOP practice.
