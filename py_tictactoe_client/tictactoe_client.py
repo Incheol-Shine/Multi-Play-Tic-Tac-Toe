@@ -215,7 +215,7 @@ class	Frame1(tk.Frame):
 	def _create_display(self):
 		self.display = tk.Label(master=self,
 			  text="Match Making...",
-			  font=font.Font(size=28, weight="bold"))
+			  font=font.Font(size=26, weight="bold"))
 		self.display.pack(pady=50)
 
 """ 게임의 세번째 화면입니다. 본격적으로 틱택토 게임이 진행됩니다. """
@@ -235,7 +235,7 @@ class	Frame2(tk.Frame):
 	def _create_display(self):
 		self.display = tk.Label(master=self,
 			  text="",
-			  font=font.Font(size=28, weight="bold"))
+			  font=font.Font(size=26, weight="bold"))
 		self.display.pack()
 	
 	""" 게임 재시작 버튼을 생성합니다. 처음엔 가려져있다가 게임 종료시 나타납니다. """
