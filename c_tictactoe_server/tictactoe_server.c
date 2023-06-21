@@ -11,6 +11,7 @@
 #define PLAYER_X_ID "X"
 #define PLAYER_O_ID "O"
 
+/* 두 클라이언트의 소켓을 저장하는 구조체입니다. */
 typedef struct s_data
 {
 	int	fd1, fd2;
@@ -28,6 +29,7 @@ int	main(void)
 	pthread_t			t_thread;
 	t_data				*data;
 
+	/* 소켓을 생성하고 주소 정보를 입력합니다. */
 	serv_sock = socket(PF_INET,SOCK_STREAM,0);
 	if (serv_sock == -1)
 	{
@@ -51,6 +53,7 @@ int	main(void)
 		exit(EXIT_FAILURE);
 	}
 
+	/* 두 클라이언트의 접속을 받고 새 스레드를 연 다음 소켓정보를 인자로 전달합니다. */
 	while (1)
 	{
 		clnt_addr_size1=sizeof(clnt_addr1);
@@ -81,6 +84,7 @@ int	main(void)
 	return 0;
 }
 
+/* 새 스레드에서 동작하는 함수입니다. 두 클라이언트가 데이터를 주고받도록 합니다. */
 void	*thread_main(void *arg)
 {
 	t_data	*data;
@@ -93,6 +97,7 @@ void	*thread_main(void *arg)
 	clnt_sock1 = data->fd1;
 	clnt_sock2 = data->fd2;
 	
+	/* 매칭이 이루어졌음을 두 클라이언트에게 알려줍니다. */
 	strcpy(msg, "AA");
 	write(clnt_sock1, msg, sizeof(msg));
 	write(clnt_sock2, msg, sizeof(msg));
@@ -100,6 +105,8 @@ void	*thread_main(void *arg)
 	int	i = 1;
 	int len_x = 0;
 	int len_o = 0;
+
+	/* 플레이어 X, O 순서로 데이터를 받고, 상대 플레이어에게 그대로 전달합니다. */
 	while (1)
 	{
 		if (i%2)
